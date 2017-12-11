@@ -1,0 +1,142 @@
+//
+//  BSHttpTool.m
+//  Pods
+//
+//  Created by nyhz on 15/11/16.
+
+
+#import "BSHttpTool.h"
+#import "AFNetworking.h"
+#import "MJExtension.h"
+#import "BSUpLoadParam.h"
+#import <SVProgressHUD.h>
+#import "BSLoginVC.h"
+
+//真实数据（正式服务器）
+#define BSBaseURL @"http://116.255.246.239:9001/api/business"
+
+//本地数据 （本地服务器）
+//#define BSBaseURL @"http://10.10.0.254:9001/api/business"
+
+//本地星币赠送数据（帅哥）
+//#define BSBaseURL @"http://10.10.0.124:8080/api/business"
+
+//星币充值记录测试（晋晋）
+//#define BSBaseURL @"http://10.10.0.207:80/api/business"
+
+#define BSBackURL @".ashx"
+@implementation BSHttpTool
+/**
+ *get
+ 不需要返回值 网络的数据会延迟，并不会马上返回
+ */
++(void)GET:(NSString *)URLString
+parameters:(id)parameters
+   success:(void (^)( id responseObject))success
+   failure:(void (^)( NSError *error))failure{
+    //创建请求管理者
+    
+    AFHTTPRequestOperationManager *mgr=[AFHTTPRequestOperationManager manager];
+    
+    [mgr GET:URLString parameters:parameters success:^(AFHTTPRequestOperation *operation, id responseObject) {
+        //先把请求成功的事情保存到这个代码块中
+        if (success) {
+            success(responseObject);
+        }
+        
+    } failure:^(AFHTTPRequestOperation *operation, NSError *error) {
+        if (failure) {
+            failure(error);
+        }
+    }];
+}
++(void)POST:(NSString *)URLString parameters:(id)parameters success:(void (^)(id))success failure:(void (^)(NSError *))failure{
+    //创建请求管理者
+    AFHTTPRequestOperationManager *mgr=[AFHTTPRequestOperationManager manager];
+    
+    //url 拼接url
+    NSString *requestUrl=[[BSBaseURL stringByAppendingPathComponent:URLString] stringByAppendingString:BSBackURL];
+    //模型转成字典
+    NSMutableDictionary *mutableParaDict =[parameters mj_keyValues];
+    [mutableParaDict setObject:@"WSXCXX_97Tcxz" forKey:@"auth"];
+//    NSLog(@"----------%@",parameters);
+    
+    [mgr POST:requestUrl parameters:mutableParaDict success:^(AFHTTPRequestOperation *operation, id responseObject) {
+        NSDictionary *dic=[NSDictionary dictionaryWithDictionary:responseObject];
+        
+        if (success) {
+            
+                if(([dic[@"code"] isEqualToString:@"1"]||[dic[@"code"] isEqualToString:@"2"])&&[dic[@"code_text"] isEqualToString:@"passworderror"]){
+                    
+                    BSLoginVC *loginVC=[[BSLoginVC alloc] init];
+                    
+                    loginVC.hidesBottomBarWhenPushed=YES;
+                    
+                    NSUserDefaults *userdefaults=[NSUserDefaults standardUserDefaults];
+                    
+                    [userdefaults removeObjectForKey:@"btnKey"];
+                    
+                    UIViewController *VC = [UIApplication sharedApplication].keyWindow.rootViewController;
+                    
+                    [VC presentViewController:loginVC animated:YES completion:nil];
+                    
+                }else{
+                    success(responseObject);
+                }
+            
+            
+        }
+        
+        
+        
+    } failure:^(AFHTTPRequestOperation *operation, NSError *error) {
+        
+        if (failure) {
+            failure(error);
+        }
+        //如果请求超时的话
+        if (error.code == -1001) {
+            [SVProgressHUD showErrorWithStatus:@"亲，请求超时啦~"];
+        }
+        //如果断网的话
+        if (error.code == -1009) {
+            [SVProgressHUD showErrorWithStatus:@"亲，木有联网哦~"];
+        }
+        
+    }];
+    
+    
+}
+
++(void)Upload:(NSString *)URLString parameters:(id)parameters uploadParam:(BSUpLoadParam *)uploadParam success:(void (^)(id))success failure:(void (^)(NSError *))failure{
+    AFHTTPRequestOperationManager *mgr=[AFHTTPRequestOperationManager manager];
+    [mgr POST:URLString parameters:parameters constructingBodyWithBlock:^(id<AFMultipartFormData> formData) {//上传的文件全部拼接dao formdata
+        
+        /**
+         *FileData 要伤处的文件的为禁止数据
+         *name 参数的名称
+         *fileName 上传到服务器的名称
+         *mimeType 文件的类型
+         */
+        
+        [formData appendPartWithFileData:uploadParam.data name:uploadParam.name fileName:uploadParam.fileName mimeType:uploadParam.nameType];
+        
+        
+        
+        
+        //上传多张
+        /*
+         [formData appendPartWithFileData:data name:@"pic" fileName:@"image.png" mimeType:@"image/png"];
+         [formData appendPartWithFileData:data name:@"pic" fileName:@"image.png" mimeType:@"image/png"];
+         [formData appendPartWithFileData:data name:@"pic" fileName:@"image.png" mimeType:@"image/png"];
+         */
+        
+    } success:^(AFHTTPRequestOperation *operation, id responseObject) {
+        if (success) {
+            success(responseObject);
+        }
+    } failure:^(AFHTTPRequestOperation *operation, NSError *error) {
+        
+    }];
+}
+@end

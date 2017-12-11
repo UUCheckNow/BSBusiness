@@ -1,0 +1,66 @@
+//
+//  BSparam.h
+//  BS1369
+//
+//  Created by nyhz on 15/11/16.
+//  Copyright © 2015年 bsw1369. All rights reserved.
+//
+
+#import <Foundation/Foundation.h>
+
+@interface BSparam : NSObject
+//手机号
+@property(nonatomic,strong) NSString *name;
+//商户登陆密码
+@property(nonatomic,strong) NSString *pwdUrlMd5;
+//订单号
+@property(nonatomic,strong) NSString *orderNum;
+//商户id
+@property(nonatomic,strong) NSString *bidd;
+//用户id
+@property(nonatomic,strong) NSString *uidd;
+//起始位置
+@property(nonatomic,strong) NSString *position;
+//页面长度
+@property(nonatomic,strong) NSString *max;
+
+//验证码
+@property(nonatomic,strong) NSString *yzm;
+//商户登陆密码
+@property(nonatomic,strong) NSString *pwd;
+//商户手机号码
+@property(nonatomic,strong) NSString *mobile;
+//商户手机号码
+@property(nonatomic,strong) NSString *mmobile;
+/**
+ *头像
+ */
+@property(nonatomic,strong) NSString  *iconStr;
+
+@property(nonatomic,strong) NSData *iconData;
+
+//会员手机号码
+@property(nonatomic,strong) NSString *usermobile;
+//消费金额
+@property(nonatomic,strong) NSString *money;
+//赠送星币数额
+@property(nonatomic,strong) NSString *xb;
+/**
+ *赠送星币比例
+ */
+@property(nonatomic,strong) NSString  *bfb;
+//操作方式1：电脑2：android3：apple
+@property(nonatomic,strong) NSString *oway;
+
+//第三个控制器里的起始页
+@property(nonatomic,strong) NSString *iStart;
+
+//type 1赚星币   2 星币购
+@property(nonatomic,strong) NSString *type;
+//消费密码
+@property(nonatomic,strong) NSString *BuyBH;
+
+//订单号
+@property(nonatomic,strong) NSString *OrderBH;
+
+@end

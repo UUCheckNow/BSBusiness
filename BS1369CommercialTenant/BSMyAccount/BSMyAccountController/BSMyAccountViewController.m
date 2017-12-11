@@ -1,0 +1,229 @@
+//
+//  BSMyAccountViewController.m
+//  BS1369CommercialTenant
+//
+//  Created by bsmac2 on 15/12/16.
+//  Copyright © 2015年 UU. All rights reserved.
+//
+
+#import "BSMyAccountViewController.h"
+
+#import "BSSetNavigationView.h"
+#import "Common.h"
+
+#import "MyMD5.h"
+#import "BSparam.h"
+#import "BSHttpTool.h"
+
+#import "BSHomePageModel.h"
+
+#import <SDWebImage/UIImageView+WebCache.h>
+
+#import "MyAccountTableViewCell.h"
+#import "HeaderImageTableViewCell.h"
+
+#import "BSchangePwyPasswd.h"
+#import "BSLoginVC.h"
+
+#define greencolor [UIColor colorWithRed:80%255/255.0 green:211%255/255.0 blue:98%255/255.0 alpha:1]
+#define orgincolor [UIColor colorWithRed:248%255/255.0 green:146%255/255.0 blue:56%255/255.0 alpha:1]
+
+@interface BSMyAccountViewController () <UITableViewDelegate,UITableViewDataSource> {
+    UITableView *_tableView;
+    BOOL selected;
+}
+
+@property(nonatomic,strong) BSparam *bsparam;
+
+@property(nonatomic,strong) BSHomePageModel *homepagemodel;
+
+@end
+
+@implementation BSMyAccountViewController
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.view.backgroundColor = [UIColor whiteColor];
+    self.navigationController.navigationBarHidden = YES;
+    // Do any additional setup after loading the view.
+    [self setNavigation];
+    [self getDataFromNet];
+    [self createTableView];
+    [self createLoginOutButton];
+}
+
+- (void)viewWillAppear:(BOOL)animated {
+    [self getDataFromNet];
+}
+
+- (void)setNavigation {
+    BSSetNavigationView *navg = [BSSetNavigationView navigationWithcenterTitleName:@"我的账户" andFrame:CGRectMake(0, 20, ScreenWidth, 44)];
+    [self.view addSubview:navg];
+}
+
+- (void)getDataFromNet {
+    NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
+    
+    _bsparam = [[BSparam alloc]init];
+    
+    _bsparam.name = [userDefaults objectForKey:@"loginTel"];
+    _bsparam.pwdUrlMd5 = [MyMD5 md5:[userDefaults objectForKey:@"loginPwd"]];
+    
+    [BSHttpTool POST:@"login" parameters:_bsparam success:^(id responseObject) {
+        
+        _homepagemodel = responseObject[@"info"];
+        [_tableView reloadData];
+    } failure:^(NSError *error) {
+        
+    }];
+}
+
+- (void)createTableView {
+    _tableView = [[UITableView alloc]initWithFrame:CGRectMake(0, 64, ScreenWidth, ScreenHeight-44-64) style:UITableViewStyleGrouped];
+    _tableView.delegate = self;
+    _tableView.dataSource = self;
+    _tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
+    _tableView.scrollEnabled = NO;
+    [self.view addSubview:_tableView];
+}
+
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
+    return 3;
+}
+
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+    return 1;
+}
+
+- (CGFloat)tableView:(UITableView *)tableView heightForHeaderInSection:(NSInteger)section {
+    return 16;
+}
+
+- (CGFloat)tableView:(UITableView *)tableView heightForFooterInSection:(NSInteger)section {
+    return 0.1;
+}
+
+- (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
+    if (indexPath.section == 0) {
+        return 80;
+    }
+    return 44;
+}
+
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    
+    UITableViewCell *cell = [[UITableViewCell alloc]initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"hello"];
+    if (cell == nil) {
+        cell = [tableView dequeueReusableCellWithIdentifier:@"hello" forIndexPath:indexPath];
+    }
+    if (indexPath.section == 0) {
+        static NSString *customCell1 = @"HeaderImageTableViewCell";
+        UINib * nib = [UINib nibWithNibName:@"HeaderImageTableViewCell" bundle:nil];
+        [tableView registerNib:nib forCellReuseIdentifier:customCell1];
+        HeaderImageTableViewCell *c1 = (HeaderImageTableViewCell *)[tableView dequeueReusableCellWithIdentifier:customCell1];
+        c1.selectionStyle=UITableViewCellSelectionStyleNone;
+        c1.homePageModel = _homepagemodel;
+        return c1;
+    }else {
+        static NSString *customCell2 = @"MyAccountTableViewCell";
+        UINib * nib = [UINib nibWithNibName:@"MyAccountTableViewCell" bundle:nil];
+        [tableView registerNib:nib forCellReuseIdentifier:customCell2];
+        MyAccountTableViewCell *activeCell = (MyAccountTableViewCell *)[tableView dequeueReusableCellWithIdentifier:customCell2];
+        NSArray *imageNameArr = @[@"",@"\U0000e608",@"\U0000e619"];
+        NSArray *titleArr = @[@"",@"账户安全",@"我的星币"];
+//        字体图标
+        UIFont *icon2font = [UIFont fontWithName:@"IconFont" size: 24];
+        activeCell.iconLab.font = icon2font;
+        activeCell.iconLab.text = imageNameArr[indexPath.section];
+        if (indexPath.section == 1) {
+            activeCell.iconLab.textColor = greencolor;
+        }else {
+            activeCell.iconLab.textColor = orgincolor;
+        }
+        activeCell.titleLabel.text = titleArr[indexPath.section];
+        if (indexPath.section == 2) {
+            activeCell.selectionStyle=UITableViewCellSelectionStyleNone;
+
+            if (![[_homepagemodel valueForKey:@"yuE"]isEqual:nil]) {
+                
+                activeCell.detailLabel.text = [NSString stringWithFormat:@"%@",[_homepagemodel valueForKey:@"yuE"]];
+            }else {
+            
+                activeCell.detailLabel.text = @"0";
+            }
+//        }else if (indexPath.section == 3) {
+//            activeCell.selectionStyle=UITableViewCellSelectionStyleNone;
+//
+//            if (![[_homepagemodel valueForKey:@"ActiveUser"]isEqual:nil]) {
+//                
+//                activeCell.detailLabel.text = [NSString stringWithFormat:@"%@人",[_homepagemodel valueForKey:@"ActiveUser"]];
+//                
+//            }else {
+//                activeCell.detailLabel.text = @"0人";
+//            }
+            
+        }else if (indexPath.section == 1) {
+            activeCell.detailLabel.alpha = 0;
+
+            UIImageView *backView = [[UIImageView alloc]initWithFrame:CGRectMake(ScreenWidth - 30, 10, 18, 20)];
+            backView.image = [UIImage imageNamed:@"my_list_arrow"];
+            [activeCell addSubview:backView];
+        }
+        return activeCell;
+    }
+    return cell;
+}
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    [_tableView deselectRowAtIndexPath:indexPath animated:YES];
+    if (indexPath.section == 1) {
+        BSchangePwyPasswd *saveController = [[BSchangePwyPasswd alloc]init];
+        saveController.telStr = [_homepagemodel valueForKey:@"tel"];
+        saveController.hidesBottomBarWhenPushed = YES;
+        [self.navigationController pushViewController:saveController animated:YES];
+    }
+    
+}
+//登出按钮
+- (void)createLoginOutButton {
+    UIButton *loginOutButton = [UIButton buttonWithType:UIButtonTypeCustom];
+    loginOutButton.frame = CGRectMake(ScreenWidth/3,ScreenHeight - 100, ScreenWidth/3, 36);
+    loginOutButton.layer.cornerRadius = 5;
+    loginOutButton.clipsToBounds = YES;
+    [loginOutButton setTitle:@"退出登录" forState:UIControlStateNormal];
+    [loginOutButton setBackgroundColor:REDCOLOR];
+    [loginOutButton addTarget:self action:@selector(loginOutTouch:) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:loginOutButton];
+}
+- (void)loginOutTouch:(UIButton *)loginOutBtn {
+    NSUserDefaults *userDefaults=[NSUserDefaults standardUserDefaults];
+    selected =[userDefaults boolForKey:@"btnKey"];
+//    NSLog(@"%d",selected);
+    if (!selected) {
+        [userDefaults removeObjectForKey:@"loginName"];
+        [userDefaults removeObjectForKey:@"Password"];
+    }
+
+    
+    BSLoginVC *loginController = [[BSLoginVC alloc]init];
+    
+    [self presentViewController:loginController animated:YES completion:^{
+        
+    }];
+}
+- (void)didReceiveMemoryWarning {
+    [super didReceiveMemoryWarning];
+    // Dispose of any resources that can be recreated.
+}
+
+/*
+ #pragma mark - Navigation
+ 
+ // In a storyboard-based application, you will often want to do a little preparation before navigation
+ - (void)prepareForSegue:(UIStoryboardSegue *)segue sender:(id)sender {
+ // Get the new view controller using [segue destinationViewController].
+ // Pass the selected object to the new view controller.
+ }
+ */
+
+@end

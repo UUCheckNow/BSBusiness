@@ -1,0 +1,314 @@
+//
+//  AppDelegate.m
+//  BS1369CommercialTenant
+//
+//  Created by bsmac2 on 15/12/16.
+//  Copyright © 2015年 UU. All rights reserved.
+//
+
+#import "AppDelegate.h"
+#import "BSToorbarViewController.h"
+
+#import "BSLoginVC.h"
+#import "Common.h"
+
+
+//APP端签名相关头文件
+#import "payRequsestHandler.h"
+//服务端签名只需要用到下面一个头文件
+//#import "ApiXml.h"
+#import <QuartzCore/QuartzCore.h>
+
+//推送
+#import "JPUSHService.h"
+
+@interface AppDelegate ()<WXApiDelegate>
+
+@end
+
+@implementation AppDelegate
+
+
+- (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
+//    NSLog(@"-----------%@",[NSBundle mainBundle].bundleIdentifier);
+    // Override point for customization after application launch.
+    self.window = [[UIWindow alloc]initWithFrame:[UIScreen mainScreen].bounds];
+    self.window.backgroundColor = [UIColor clearColor];
+    [self.window makeKeyAndVisible];
+    //
+    //
+    BSToorbarViewController *toorbarViewController =[[BSToorbarViewController alloc]init];
+    
+    toorbarViewController.tabBar.translucent = NO;
+//    toorbarViewController.tabBar.barTintColor  = [UIColor blackColor];
+    toorbarViewController.tabBar.tintColor = REDCOLOR;
+    
+    
+    
+    NSUserDefaults *userDefaults=[NSUserDefaults standardUserDefaults];
+    //记录密码用户名
+//    NSLog(@"--------------%@-------%@",[userDefaults objectForKey:@"loginTel"],[userDefaults objectForKey:@"loginPwd"]);
+    if ([userDefaults objectForKey:@"loginTel"] && [userDefaults objectForKey:@"loginPwd"]) {
+        
+        self.window.rootViewController = toorbarViewController;
+        
+    }else {
+        
+        BSLoginVC *bsLoginController =[[BSLoginVC alloc]init];
+        
+        self.window.rootViewController = bsLoginController;
+    }
+#pragma mark - 微信支付
+    //向微信注册
+    [WXApi registerApp:APP_ID withDescription:@"demo 2.0"];
+
+#pragma mark - 推送
+    if ([[UIDevice currentDevice].systemVersion floatValue] >= 8.0) {
+        //可以添加自定义categories
+        [JPUSHService registerForRemoteNotificationTypes:(UIUserNotificationTypeBadge |
+                                                          UIUserNotificationTypeSound |
+                                                          UIUserNotificationTypeAlert)
+                                              categories:nil];
+    } else {
+        //categories 必须为nil
+        [JPUSHService registerForRemoteNotificationTypes:(UIRemoteNotificationTypeBadge |
+                                                          UIRemoteNotificationTypeSound |
+                                                          UIRemoteNotificationTypeAlert)
+                                              categories:nil];
+    }
+    [JPUSHService setupWithOption:launchOptions appKey:@"6ffd93a70ee20029552eb155" channel:@"AppStore" apsForProduction:NO];
+    NSNotificationCenter *defaultCenter=[NSNotificationCenter defaultCenter];
+    [defaultCenter addObserver:self selector:@selector(networkDidReceiveMessage:) name:kJPFNetworkDidReceiveMessageNotification object:nil];
+    
+    UILocalNotification *localNotification=[launchOptions objectForKey:@"UIApplicationLaunchOptionsLocalNotificationKey"];
+    if (localNotification) {
+        [self application:[UIApplication sharedApplication] didReceiveLocalNotification:localNotification];
+    }
+    return YES;
+}
+
+
+
+-(void) onReq:(BaseReq*)req
+{
+    if([req isKindOfClass:[GetMessageFromWXReq class]])
+    {
+        // 微信请求App提供内容， 需要app提供内容后使用sendRsp返回
+        NSString *strTitle = [NSString stringWithFormat:@"微信请求App提供内容"];
+        NSString *strMsg = @"微信请求App提供内容，App要调用sendResp:GetMessageFromWXResp返回给微信";
+        
+        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:strTitle message:strMsg delegate:self cancelButtonTitle:@"OK" otherButtonTitles:nil, nil];
+        alert.tag = 1000;
+        [alert show];
+        
+    }
+    else if([req isKindOfClass:[ShowMessageFromWXReq class]])
+    {
+        ShowMessageFromWXReq* temp = (ShowMessageFromWXReq*)req;
+        WXMediaMessage *msg = temp.message;
+        
+        //显示微信传过来的内容
+        WXAppExtendObject *obj = msg.mediaObject;
+        
+        NSString *strTitle = [NSString stringWithFormat:@"微信请求App显示内容"];
+        NSString *strMsg = [NSString stringWithFormat:@"标题：%@ \n内容：%@ \n附带信息：%@ \n缩略图:%lu bytes\n\n", msg.title, msg.description, obj.extInfo, msg.thumbData.length];
+        
+        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:strTitle message:strMsg delegate:self cancelButtonTitle:@"OK" otherButtonTitles:nil, nil];
+        [alert show];
+        
+    }
+    else if([req isKindOfClass:[LaunchFromWXReq class]])
+    {
+        //从微信启动App
+        NSString *strTitle = [NSString stringWithFormat:@"从微信启动"];
+        NSString *strMsg = @"这是从微信启动的消息";
+        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:strTitle message:strMsg delegate:self cancelButtonTitle:@"OK" otherButtonTitles:nil, nil];
+        [alert show];
+        
+    }
+}
+
+-(void) onResp:(BaseResp*)resp
+{
+    NSString *strMsg = [NSString stringWithFormat:@"errcode:%d", resp.errCode];
+    NSString *strTitle;
+    
+    if([resp isKindOfClass:[SendMessageToWXResp class]])
+    {
+        strTitle = [NSString stringWithFormat:@"发送媒体消息结果"];
+    }
+    if([resp isKindOfClass:[PayResp class]]){
+        //支付返回结果，实际支付结果需要去微信服务器端查询
+//        strTitle = [NSString stringWithFormat:@"支付结果"];
+        
+        switch (resp.errCode) {
+            case WXSuccess:
+                strMsg = @"支付成功！";
+//                NSLog(@"支付成功－PaySuccess，retcode = %d", resp.errCode);
+                break;
+                
+            default:
+                strMsg = @"支付失败！";
+//                strMsg = [NSString stringWithFormat:@"支付结果：失败！retcode = %d, retstr = %@", resp.errCode,resp.errStr];
+//                NSLog(@"错误，retcode = %d, retstr = %@", resp.errCode,resp.errStr);
+                break;
+        }
+    }
+    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:strTitle message:strMsg delegate:self cancelButtonTitle:@"OK" otherButtonTitles:nil, nil];
+    [alert show];
+}
+
+- (BOOL)application:(UIApplication *)application handleOpenURL:(NSURL *)url
+{
+    return  [WXApi handleOpenURL:url delegate:self];
+}
+
+- (BOOL)application:(UIApplication *)application openURL:(NSURL *)url sourceApplication:(NSString *)sourceApplication annotation:(id)annotation
+{
+    return  [WXApi handleOpenURL:url delegate:self];
+}
+#pragma mark - 微信end
+
+#pragma mark 消息中心
+-(void)networkDidReceiveMessage:(NSNotification *)notification{
+    NSDictionary *userInfo=[notification userInfo];
+    NSLog(@"%@",userInfo);
+    NSString *content=[userInfo valueForKey:@"content"];
+    NSDictionary *extras=[userInfo valueForKey:@"extras"];
+    NSUserDefaults *usderDefaults=[NSUserDefaults standardUserDefaults];
+    NSString *msgtype=extras[@"type"];
+    [usderDefaults setObject:msgtype forKey:@"msgtype"];
+    //1 创建通知
+    UILocalNotification *localNote=[[UILocalNotification alloc] init];
+    //2 设置属性
+    localNote.alertAction=@"确定";//操作标题
+    localNote.alertTitle=@"白送网商户版";
+    localNote.alertBody=content;// 正文
+    localNote.soundName=UILocalNotificationDefaultSoundName;
+    localNote.alertLaunchImage=@"home_s";// 点击通知, 打开程序时候现实的启动图片
+    localNote.applicationIconBadgeNumber = [[[UIApplication sharedApplication] scheduledLocalNotifications] count]+1;
+    localNote.fireDate=[NSDate dateWithTimeIntervalSinceNow:5];
+    localNote.timeZone = [NSTimeZone defaultTimeZone];// 设置时区
+    localNote.soundName = UILocalNotificationDefaultSoundName;// 推送声音
+    //3注册通知 添加
+    UIApplication *app=[UIApplication sharedApplication];
+    [app scheduleLocalNotification:localNote];
+    
+}
+
+-(void)application:(UIApplication *)application didRegisterForRemoteNotificationsWithDeviceToken:(NSData *)deviceToken{
+    [JPUSHService registerDeviceToken:deviceToken];
+//    NSUserDefaults *userdefaults=[NSUserDefaults standardUserDefaults];
+//    NSString *name=[userdefaults objectForKey:@"name"];
+//    设备别名
+    NSString *name = @"110";
+    [JPUSHService setTags:[NSSet set] alias:name fetchCompletionHandle:^(int iResCode, NSSet *iTags, NSString *iAlias) {
+        
+    }];
+}
+
+-(void)application:(UIApplication *)application didReceiveRemoteNotification:(NSDictionary *)userInfo{
+    
+     [JPUSHService handleRemoteNotification:userInfo];
+//     NSUserDefaults *userDefaults=[NSUserDefaults standardUserDefaults];
+     #pragma mark 如果在前端活动 返回
+     if (application.applicationState == UIApplicationStateActive) {
+     return;
+     }
+}
+
+-(void)application:(UIApplication *)application didReceiveRemoteNotification:(NSDictionary *)userInfo fetchCompletionHandler:(void (^)(UIBackgroundFetchResult))completionHandler{
+    
+     [JPUSHService handleRemoteNotification:userInfo];
+     //应用正处在 前台状态下 不会收到推送消息，因此需要处理一下
+     if (application.applicationState == UIApplicationStateActive) {
+     return;
+     }
+     completionHandler(UIBackgroundFetchResultNewData);
+    
+}
+
+-(void)application:(UIApplication *)application didReceiveLocalNotification:(UILocalNotification *)notification{
+    
+//    NSUserDefaults *userDefaults=[NSUserDefaults standardUserDefaults];
+#pragma mark 如果在前端活动 返回
+    if (application.applicationState == UIApplicationStateActive) {
+        return;
+    }
+//        [(UITabBarController *)[UIApplication sharedApplication].keyWindow.rootViewController setSelectedIndex:0];
+//    
+//        BSTabBarViewController *tabbarVC=(BSTabBarViewController *)self.window.rootViewController;
+//        UINavigationController *nav=tabbarVC.childViewControllers[4];
+//        BSUserCenter *userCenter=(BSUserCenter *)nav.topViewController;
+//        BSPayRemindTVC *payVC=[[BSPayRemindTVC alloc] init];
+//        payVC.hidesBottomBarWhenPushed=YES;
+//        payVC.titleName=titleName;
+//    
+//        [userCenter.navigationController pushViewController:payVC animated:YES];
+        [application setApplicationIconBadgeNumber:0];
+        [application cancelAllLocalNotifications];
+    
+    
+    
+//    if ([[userDefaults objectForKey:@"msgtype"] isEqualToString:@"0"]) {
+//        [self locationMessage:application withTitleName:@"支付提醒"];
+//    }else if ([[userDefaults objectForKey:@"msgtype"] isEqualToString:@"1"]){
+//        [self locationMessage:application withTitleName:@"消费提醒"];
+//    }else if ([[userDefaults objectForKey:@"msgtype"] isEqualToString:@"2"]){
+//        [self locationMessage:application withTitleName:@"UU祝您春节嗨皮~"];
+//    }
+    
+    
+}
+
+#pragma mark 实现本地推送
+-(void)locationMessage:(UIApplication *)application withTitleName:(NSString *)titleName{
+//    [(UITabBarController *)[UIApplication sharedApplication].keyWindow.rootViewController setSelectedIndex:4];
+//    BSTabBarViewController *tabbarVC=(BSTabBarViewController *)self.window.rootViewController;
+//    UINavigationController *nav=tabbarVC.childViewControllers[4];
+//    BSUserCenter *userCenter=(BSUserCenter *)nav.topViewController;
+//    BSPayRemindTVC *payVC=[[BSPayRemindTVC alloc] init];
+//    payVC.hidesBottomBarWhenPushed=YES;
+//    payVC.titleName=titleName;
+//    [userCenter.navigationController pushViewController:payVC animated:YES];
+    [application setApplicationIconBadgeNumber:0];
+    [application cancelAllLocalNotifications];
+//
+//    NSUserDefaults *userDefaults=[NSUserDefaults standardUserDefaults];
+//    [userDefaults removeObjectForKey:@"msgtype"];
+}
+
+
+
+-(void)application:(UIApplication *)application didRegisterUserNotificationSettings:(UIUserNotificationSettings *)notificationSettings{
+    
+    [application registerForRemoteNotifications];
+}
+
+
+- (void)applicationWillResignActive:(UIApplication *)application {
+    // Sent when the application is about to move from active to inactive state. This can occur for certain types of temporary interruptions (such as an incoming phone call or SMS message) or when the user quits the application and it begins the transition to the background state.
+    // Use this method to pause ongoing tasks, disable timers, and throttle down OpenGL ES frame rates. Games should use this method to pause the game.
+}
+
+- (void)applicationDidEnterBackground:(UIApplication *)application {
+    // Use this method to release shared resources, save user data, invalidate timers, and store enough application state information to restore your application to its current state in case it is terminated later.
+    // If your application supports background execution, this method is called instead of applicationWillTerminate: when the user quits.
+}
+
+#pragma mark 进入后台设置信息消息
+- (void)applicationWillEnterForeground:(UIApplication *)application {
+    // 退到后台时清除
+    
+  
+}
+
+- (void)applicationDidBecomeActive:(UIApplication *)application {
+    // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
+}
+
+- (void)applicationWillTerminate:(UIApplication *)application {
+    // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
+}
+
+@end

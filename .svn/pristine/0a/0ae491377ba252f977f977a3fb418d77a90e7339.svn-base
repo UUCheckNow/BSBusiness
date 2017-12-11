@@ -1,0 +1,386 @@
+//
+//  XingbiRechargeVC.m
+//  BS1369CommercialTenant
+//
+//  Created by bsmac2 on 15/12/17.
+//  Copyright © 2015年 UU. All rights reserved.
+//
+
+#import "XingbiRechargeVC.h"
+#import "BSSetNavigationView.h"
+#import "Common.h"
+
+#import "AlipayHeader.h"
+#import "MBProgressHUD+MJ.h"
+
+//APP端签名相关头文件
+#import "payRequsestHandler.h"
+//服务端签名只需要用到下面一个头文件
+//#import "ApiXml.h"
+#import "WXApi.h"
+#import <QuartzCore/QuartzCore.h>
+
+#import "MyMD5.h"
+#import "BSparam.h"
+#import "BSHttpTool.h"
+
+//view的高度
+#define tabbarH 49
+
+@interface XingbiRechargeVC ()<UITextFieldDelegate> {
+    
+    NSInteger selectBtn;
+}
+
+//详情显示的数组
+@property(nonatomic,strong) NSArray *detailNewArray;
+
+@property(nonatomic,weak) UILabel  *nameView;
+@property(nonatomic,weak) UILabel  *name1View;
+@property(nonatomic,weak) UILabel  *name2View;
+
+@property(nonatomic,weak) UITextField *namefield;
+@property(nonatomic,weak) UILabel *name1field;
+@property(nonatomic,weak) UILabel *name2field;
+
+@property(nonatomic,strong) BSparam *bsparam;
+@property (nonatomic,strong) NSString *yuEStr;
+
+@end
+
+@implementation XingbiRechargeVC
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.view.backgroundColor = [UIColor whiteColor];
+    selectBtn = 0;
+    // Do any additional setup after loading the view.
+
+    [self setNavigation];
+    
+    [self getDataFormNet];
+
+}
+- (void)getDataFormNet {
+    NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
+    
+    _bsparam = [[BSparam alloc]init];
+    
+    _bsparam.name = [userDefaults objectForKey:@"loginTel"];
+    _bsparam.pwdUrlMd5 = [MyMD5 md5:[userDefaults objectForKey:@"loginPwd"]];
+    
+    [BSHttpTool POST:@"login" parameters:_bsparam success:^(id responseObject) {
+        NSDictionary *dic=[NSDictionary dictionaryWithDictionary:responseObject];
+        //        判断是否登录成功
+        if ([dic[@"code"] isEqualToString:@"1"]) {
+            
+            NSString *str=dic[@"code_text"];
+            [MBProgressHUD showError:str];
+            
+        }else {
+            
+            _yuEStr = [responseObject[@"info"] valueForKey:@"yuE"];
+            
+            [self setUPChildrensView];
+        }
+        
+    } failure:^(NSError *error) {
+        
+    }];
+    
+    
+}
+- (void)setNavigation {
+    BSSetNavigationView *navg = [BSSetNavigationView navigationWithLeftImageName:@"redfanhui" centerTitleName:@"星币充值" andFrame:CGRectMake(0, 20, ScreenWidth, 44)];
+    navg.delegateVC = self;
+    [self.view addSubview:navg];
+}
+
+-(void)setUPChildrensView{
+    
+    self.detailNewArray=[NSMutableArray arrayWithObjects:@"请输入星币数量", nil];
+    
+    [self setPayOffView];
+    
+    UILabel *nameView=[[UILabel alloc] init];
+    _nameView=nameView;
+    UILabel *name1View=[[UILabel alloc] init];
+    _name1View=name1View;
+    UILabel *name2View=[[UILabel alloc] init];
+    _name2View=name2View;
+    UILabel *name1field=[[UILabel alloc] init];
+    _name1field=name1field;
+    UILabel *name2field=[[UILabel alloc] init];
+    _name2field=name2field;
+    
+    UITextField *namefield=[[UITextField alloc] init];
+    _namefield=namefield;
+    
+    namefield.keyboardType = UIKeyboardTypeNumberPad;
+    
+    [self creatLabel:nameView withTitle:@"充值星币数量 ："];
+    [self creatLabel:name1View withTitle:@"需支付金额 ："];
+    [self creatLabel:name2View withTitle:@"当前星币余额 ："];
+    
+    NSString *xingbiLab = [NSString stringWithFormat:@"0.0元"];
+    self.name1field.textColor = REDCOLOR;
+    self.name2field.textColor = REDCOLOR;
+    [self creatLabel:name1field withTitle:xingbiLab];
+    [self creatLabel:name2field withTitle:_yuEStr];
+    
+    [self creattextField:self.namefield withTitle:nil withplaceTitle:self.detailNewArray[0]];
+    
+    CGFloat padding=10;
+    self.nameView.frame=CGRectMake(padding, padding+64, 100, 30);
+    self.name1View.frame=CGRectMake(padding,padding+CGRectGetMaxY(self.nameView.frame),  90, 30);
+    self.name2View.frame=CGRectMake(padding,padding+CGRectGetMaxY(self.name1View.frame), 100, 30);
+    
+    CGFloat nameFeldX=CGRectGetMaxX(self.nameView.frame);
+    CGFloat name1fieldX=CGRectGetMaxX(self.name1View.frame);
+    CGFloat name2fieldX=CGRectGetMaxX(self.name2View.frame);
+    self.namefield.frame=CGRectMake(nameFeldX, padding+64,ScreenWidth-nameFeldX-2*padding , 30);
+    self.name1field.frame=CGRectMake(name1fieldX,padding+CGRectGetMaxY(self.namefield.frame),  ScreenWidth-name1fieldX-2*padding, 30);
+    self.name2field.frame=CGRectMake(name2fieldX,padding+CGRectGetMaxY(self.name1field.frame),  ScreenWidth-name2fieldX-2*padding, 30);
+    //    退出键盘
+    UITapGestureRecognizer *tapguest=[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(endkeyboard)];
+    [self.view addGestureRecognizer:tapguest];
+    //    label实时显示textfield的输入
+    [self.namefield addTarget:self action:@selector(showtextFiledContents) forControlEvents:UIControlEventEditingChanged];
+}
+
+- (void)setPayOffView {
+    UIView *lightGrayView = [[UIView alloc]init];
+    lightGrayView.frame = CGRectMake(0, 200, ScreenWidth, 40);
+    lightGrayView.backgroundColor = GRAYCOLOR;
+    [self.view addSubview:lightGrayView];
+    
+    UIView *redView = [[UIView alloc]initWithFrame:CGRectMake(10, 10, 5, 20)];
+    redView.backgroundColor = REDCOLOR;
+    [lightGrayView addSubview:redView];
+    UILabel *titleLab = [[UILabel alloc]initWithFrame:CGRectMake(CGRectGetMaxX(redView.frame)+5, 10, 200, 20)];
+    titleLab.text = @"请选择支付方式";
+    titleLab.font = [UIFont systemFontOfSize:14];
+    [lightGrayView addSubview:titleLab];
+    
+    UIImageView *backGround1ImageV = [[UIImageView alloc]initWithFrame:CGRectMake(10, CGRectGetMaxY(lightGrayView.frame)+10, ScreenWidth - 2*10, 40)];
+    backGround1ImageV.layer.cornerRadius = 5;
+    backGround1ImageV.clipsToBounds = YES;
+    backGround1ImageV.layer.borderWidth = 1;
+    backGround1ImageV.userInteractionEnabled = YES;
+    backGround1ImageV.layer.borderColor = [GRAYCOLOR CGColor];
+    
+    UIButton *button1 = [UIButton buttonWithType:0];
+    button1.tag = 123;
+    button1.frame = CGRectMake(CGRectGetMaxX(backGround1ImageV.frame)-40-16,2, 40, 40);
+    UIFont *icon1font = [UIFont fontWithName:@"IconFont" size: 22];
+    button1.titleLabel.font = icon1font;
+    [button1 setTitle:@"\U0000e606" forState:0];
+    [button1 setTitleColor:GRAYCOLOR forState:0];
+    [button1 addTarget:self action:@selector(toucheweixinAction:) forControlEvents:UIControlEventTouchUpInside];
+    [backGround1ImageV addSubview:button1];
+    
+    UIImageView *leftView1 = [[UIImageView alloc]initWithFrame:CGRectMake(10, 5, 30, 30)];
+    leftView1.image = [UIImage imageNamed:@"weixin"];
+    [backGround1ImageV addSubview:leftView1];
+    
+    UILabel *titLab1 = [[UILabel alloc]initWithFrame:CGRectMake(CGRectGetMaxX(leftView1.frame)+10, 10, 100, 22)];
+    titLab1.text = @"微信支付";
+    titLab1.font = [UIFont boldSystemFontOfSize:14];
+    [backGround1ImageV addSubview:titLab1];
+    [self.view addSubview:backGround1ImageV];
+    //
+    UIImageView *backGround2ImageV = [[UIImageView alloc]initWithFrame:CGRectMake(10, CGRectGetMaxY(backGround1ImageV.frame)+20, ScreenWidth - 2*10, 40)];
+    backGround2ImageV.layer.cornerRadius = 5;
+    backGround2ImageV.clipsToBounds = YES;
+    backGround2ImageV.layer.borderWidth = 1;
+    backGround2ImageV.userInteractionEnabled = YES;
+    backGround2ImageV.layer.borderColor = [GRAYCOLOR CGColor];
+    
+    UIButton *button2 = [UIButton buttonWithType:0];
+    button2.tag = 321;
+    button2.frame = CGRectMake(CGRectGetMaxX(backGround2ImageV.frame)-40-16,2, 40, 40);
+    UIFont *icon2font = [UIFont fontWithName:@"IconFont" size: 22];
+    button2.titleLabel.font = icon2font;
+    [button2 setTitle:@"\U0000e606" forState:0];
+    [button2 setTitleColor:REDCOLOR forState:0];
+    [button2 addTarget:self action:@selector(toucheszhifubaoAction:) forControlEvents:UIControlEventTouchUpInside];
+    [backGround2ImageV addSubview:button2];
+    
+    UIImageView *leftView2 = [[UIImageView alloc]initWithFrame:CGRectMake(10, 5, 30, 30)];
+    leftView2.image = [UIImage imageNamed:@"zhifubao"];
+    [backGround2ImageV addSubview:leftView2];
+    
+    UILabel *titLab2 = [[UILabel alloc]initWithFrame:CGRectMake(CGRectGetMaxX(leftView2.frame)+10, 10, 100, 22)];
+    titLab2.text = @"支付宝";
+    titLab2.font = [UIFont boldSystemFontOfSize:14];
+    [backGround2ImageV addSubview:titLab2];
+    [self.view addSubview:backGround2ImageV];
+    
+    UIButton *btn=[UIButton buttonWithType:UIButtonTypeCustom];
+    btn.frame=CGRectMake(ScreenWidth/3, CGRectGetMaxY(backGround2ImageV.frame)+35,ScreenWidth/3, 35);
+    [btn setTitle:@"立即充值" forState:UIControlStateNormal];
+    [btn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+    btn.titleLabel.font=[UIFont systemFontOfSize:13];
+    btn.backgroundColor= REDCOLOR;
+    btn.layer.masksToBounds=YES;
+    btn.layer.cornerRadius=5.0;
+    [btn addTarget:self action:@selector(payButton:) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:btn];
+    
+}
+
+#pragma mark 结束编辑
+-(void)endkeyboard{
+    [self.view endEditing:YES];
+}
+//创建名字
+-(void)creatLabel:(UILabel *)label withTitle:(NSString *)title {
+    label.text=title;
+    label.font=[UIFont systemFontOfSize:13];
+    [self.view addSubview:label];
+    
+}
+//textfield 输入内容
+-(void)creattextField:(UITextField *)textfiel withTitle:(NSString *)title withplaceTitle:(NSString *)placeTitle{
+    textfiel.text=title;
+    textfiel.tintColor=[UIColor blackColor];
+    textfiel.font=[UIFont systemFontOfSize:13];
+    textfiel.placeholder=placeTitle;
+    [self.view addSubview:textfiel];
+    textfiel.delegate=self;
+    textfiel.returnKeyType=UIReturnKeyDone;
+    
+}
+
+#pragma mark 协议方法结束编辑
+-(BOOL)textFieldShouldReturn:(UITextField *)textField{
+    
+    [textField resignFirstResponder];
+    return YES;
+    
+}
+
+- (void) showtextFiledContents{
+    
+    self.name1field.text = [NSString stringWithFormat:@"%.2f",[self.namefield.text floatValue]/4.0];
+}
+
+- (BOOL)textField:(UITextField *)textField shouldChangeCharactersInRange:(NSRange)range replacementString:(NSString *)string {
+    
+    return YES;
+}
+
+//点击确定购买，跳到支付页面
+- (void)payButton:(UIButton *)button {
+//    NSLog(@"------%ld",(long)selectBtn);
+    if ([_namefield.text isEqualToString:@""]) {
+        [MBProgressHUD showError:@"请输入金币数量"];
+    }else if ([_namefield.text isEqualToString:@"0"]) {
+        [MBProgressHUD showError:@"金币数量不能为0"];
+    }else {
+        //    跳到支付宝
+        if (selectBtn == 0) {
+            [AlipayRequestConfig alipayWithPartner:kPartnerID seller:kSeller tradeNO:[AlipayToolKit genTradeNoWithTime] productName:@"白送网-星币充值" productDescription:[[NSUserDefaults standardUserDefaults] valueForKey:@"id"] amount:self.name1field.text notifyURL:kNotifyURL];
+            //    跳到微信
+        }if (selectBtn == 1){
+            [button addTarget:self action:@selector(sendPay_demo) forControlEvents:UIControlEventTouchUpInside];
+        }
+    }
+    
+}
+//点击微信改变按钮颜色
+- (void)toucheweixinAction:(UIButton *)button {
+    selectBtn = 1;
+    UIButton *button1 = [self.view viewWithTag:321];
+    UIFont *icon1font = [UIFont fontWithName:@"IconFont" size: 22];
+    button1.titleLabel.font = icon1font;
+    [button1 setTitle:@"\U0000e606" forState:0];
+    [button1 setTitleColor:GRAYCOLOR forState:0];
+    
+    UIFont *icon2font = [UIFont fontWithName:@"IconFont" size: 22];
+    button.titleLabel.font = icon2font;
+    [button setTitle:@"\U0000e606" forState:0];
+    [button setTitleColor:REDCOLOR forState:0];
+
+}
+//点击支付宝改变按钮颜色
+- (void)toucheszhifubaoAction:(UIButton *)button {
+    selectBtn = 0;
+    UIButton *button2 = [self.view viewWithTag:123];
+    UIFont *icon2font = [UIFont fontWithName:@"IconFont" size: 22];
+    button2.titleLabel.font = icon2font;
+    [button2 setTitle:@"\U0000e606" forState:0];
+    [button2 setTitleColor:GRAYCOLOR forState:0];
+    
+    UIFont *icon1font = [UIFont fontWithName:@"IconFont" size: 22];
+    button.titleLabel.font = icon1font;
+    [button setTitle:@"\U0000e606" forState:0];
+    [button setTitleColor:REDCOLOR forState:0];
+
+}
+
+//微信支付实现
+///============================================================
+// V3&V4支付流程实现
+// 注意:参数配置请查看服务器端Demo
+// 更新时间：2015年3月3日
+// 负责人：李启波（marcyli）
+//============================================================
+
+- (void)sendPay_demo
+{
+    //{{{
+    //本实例只是演示签名过程， 请将该过程在商户服务器上实现
+    
+    //创建支付签名对象
+    payRequsestHandler *req = [[payRequsestHandler alloc]init];
+    //初始化支付签名对象
+    [req init:APP_ID mch_id:MCH_ID];
+    //设置密钥
+    [req setKey:PARTNER_ID];
+    //    传值
+//    真实传值
+    req.order_price  = [NSString stringWithFormat:@"%.0f",[self.namefield.text floatValue]/4.0*100];
+//1分测试
+//    req.order_price  = @"1";
+    //}}}
+    
+    //获取到实际调起微信支付的参数后，在app端调起支付
+    NSMutableDictionary *dict = [req sendPay_demo];
+    
+    if(dict == nil){
+        //错误提示
+        [self alert:@"" msg:@"支付失败"];
+    }else{
+        
+        NSMutableString *stamp  = [dict objectForKey:@"timestamp"];
+        
+        //调起微信支付
+        PayReq* req             = [[PayReq alloc] init];
+        req.openID              = [dict objectForKey:@"appid"];
+        req.partnerId           = [dict objectForKey:@"partnerid"];
+        req.prepayId            = [dict objectForKey:@"prepayid"];
+        req.nonceStr            = [dict objectForKey:@"noncestr"];
+        req.timeStamp           = stamp.intValue;
+        req.package             = [dict objectForKey:@"package"];
+        req.sign                = [dict objectForKey:@"sign"];
+        
+        [WXApi sendReq:req];
+    }
+}
+
+//客户端提示信息
+- (void)alert:(NSString *)title msg:(NSString *)msg
+{
+    UIAlertView *alter = [[UIAlertView alloc] initWithTitle:title message:msg delegate:nil cancelButtonTitle:@"OK" otherButtonTitles:nil];
+    
+    [alter show];
+    
+}
+
+- (void)didReceiveMemoryWarning {
+    [super didReceiveMemoryWarning];
+    
+}
+
+@end

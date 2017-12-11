@@ -1,0 +1,36 @@
+//
+//  FreeOrderTabViewCell.m
+//  BS1369CommercialTenant
+//
+//  Created by bsmac2 on 15/12/18.
+//  Copyright © 2015年 UU. All rights reserved.
+//
+
+#import "FreeOrderTabViewCell.h"
+
+@implementation FreeOrderTabViewCell
+
+- (void)awakeFromNib {
+    // Initialization code
+}
+
+- (void)setFreeordermodel:(FreeOrderModel *)freeordermodel {
+    
+    self.label1.text = [NSString stringWithFormat:@"订单编码:%@",[freeordermodel valueForKey:@"OrderFree"]];
+    self.label2.text = [NSString stringWithFormat:@"商家名称:%@",[freeordermodel valueForKey:@"MerchName"]];
+    self.label3.text = [NSString stringWithFormat:@"发布时间:%@",[freeordermodel valueForKey:@"PublishTime"]];
+    self.label4.text = [NSString stringWithFormat:@"抢购用户:%@",[freeordermodel valueForKey:@"MemberName"]];
+    self.label5.text = [NSString stringWithFormat:@"抢购时间:%@",[freeordermodel valueForKey:@"OrderDate"]];
+    self.label6.text = [NSString stringWithFormat:@"使用时间:%@",[freeordermodel valueForKey:@"BuyDate"]];
+    self.bgImageView.layer.cornerRadius = 15;
+    self.bgImageView.clipsToBounds = YES;
+    
+}
+
+- (void)setSelected:(BOOL)selected animated:(BOOL)animated {
+    [super setSelected:selected animated:animated];
+
+    // Configure the view for the selected state
+}
+
+@end

@@ -1,0 +1,54 @@
+//
+//  AlipayHeader.h
+//  ytx
+//
+//  Created by valor on 15/11/17.
+//  Copyright © 2015年 JY. All rights reserved.
+//
+
+#ifndef AlipayHeader_h
+#define AlipayHeader_h
+
+
+
+#import <AlipaySDK/AlipaySDK.h>     // 导入AlipaySDK
+#import "AlipayRequestConfig.h"     // 导入支付类
+#import "Order.h"                   // 导入订单类
+#import "DataSigner.h"              // 生成signer的类：获取私钥并将商户信息签名,外部商户可以根据情况存放私钥和签名,只需要遵循 RSA 签名规范, 并将签名字符串 base64 编码和 UrlEncode
+
+#import <Foundation/Foundation.h>   // 导入Foundation，防止某些类出现类似：“Cannot find interface declaration for 'NSObject', superclass of 'Base64'”的错误提示
+
+
+/**
+ *  partner:合作身份者ID,以 2088 开头由 16 位纯数字组成的字符串。
+ *
+ */
+#define kPartnerID @"2088021230746498"
+
+
+/**
+ *  seller:支付宝收款账号,手机号码或邮箱格式。
+ */
+#define kSeller @"xmgj1369@163.com"
+
+/**
+ *  支付宝服务器主动通知商户 网站里指定的页面 http 路径。
+ */
+#define kNotifyURL @"http://116.255.246.239:9001/api/business/addBusinessStarNote.ashx"
+
+//回调测试链接
+//#define kNotifyURL @"http://bsw.3w.net579.com/api/business/addBusinessStarNote.ashx"
+
+
+/**
+ *  appSckeme:应用注册scheme,在Info.plist定义URLtypes，处理支付宝回调
+ */
+#define kAppScheme @"BS1369CommercialTenant"
+
+
+/**
+ *  private_key:商户方的私钥,pkcs8 格式。
+ */
+#define kPrivateKey @"MIICdwIBADANBgkqhkiG9w0BAQEFAASCAmEwggJdAgEAAoGBANQ3F9g+z0DG+HsxDeRldgMvpGrYLYlIzUOEgh+ssnX/SQ68mX5itE922dDTzrHIxvIUZeb08vR6uTC5V08n1ccTR3Kg3Wsdpb9bRE+LnvA7qIFOSqoEzAoEy2fEXgatpI1ka3VoS21otl7bVaM3VqSsmKrgX+2t+7ni4sSVckRhAgMBAAECgYEAsImwXWVK1lFvblQNgX3iIZ5lgbiakQUuNMer1Bu/Tifzp72/VwNXim+NnYpF/WHQFpxfdTU6U6UwH9dfSWsTC4fNIgZiFj58+zWGdZsMqLCg1uQtCRsLNLukB8ko9QKV7YmNlYGUECx1iRZj6FfWdtfLi5TErhwZAcZLCszW71ECQQDz30VHrVJzxr7hmjHFnV4RgyCY8y6OFlM7deTbk1/E+MJHR4OQsOBF+xQzsOe5vdK9fxv0T9xEVHfxKk7ZVBR9AkEA3sTMg1lnxvbLwovxEtRsg416HcIkShEzG7EDQh4PL7rjpDWGWEZdaDMomkZtT1T+UzfDbU20A2uC4N+hV/FotQJBAMLyVypuJfxBAvPLVEA5hSoQnW1G8I9Kz2w32SOh0qvdg0iBpW1zx0SJ6mNL5mF3mdA7nPgXIuhIcb0Kag+XA+0CQC0q6eyX7BrDX30Kss6Gk5n4zZHLE2CRLDOpKGf3gEzFL/LTh3HOkpHWDZ16Oh+jtA1beRxobN9kpRzDOwuBvyECQAl2V4jAKJebCmSVD15OLgKdsSD5PrYv9/d5j6whPjQsfM73e1T0NscclYbJQwJWd/tHxPDWz7e6DT+0y+RAbCo="
+
+#endif
